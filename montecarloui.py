@@ -279,7 +279,7 @@ class mainUi(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1500, 860)
-        MainWindow.setWindowTitle("TP3 - Montecarlo LEVANTARSE - Grupo 4K2")
+        MainWindow.setWindowTitle("TP3 - Montecarlo LEVANTARSE - Grupo 1 4K2")
         MainWindow.setMinimumSize(1000, 640)
 
         self._resultados = None
@@ -704,7 +704,7 @@ class mainUi(object):
                 f'{d["probabilidad"]:.4f}',
                 f'{d["acumulada"]:.4f}',
                 f'{d["rnd_desde"]:.4f}',
-                f'{d["rnd_hasta"]:.4f}',
+                f'{d["rnd_hasta"] - 0.0001:.4f}',
             ]
             for col, valor in enumerate(valores):
                 self.tbl_estrategias.setItem(row, col, QtWidgets.QTableWidgetItem(str(valor)))
