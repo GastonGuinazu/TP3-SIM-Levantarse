@@ -7,7 +7,7 @@ Mapa rapido para la defensa con la profesora:
   - `mainUi`: arma la ventana (parametros, tabla de estrategias, indicadores, vector de estado),
     valida entradas, ejecuta `SimuladorLevantarse` y refresca las tablas.
 
-La logica de probabilidades y tiempos NO esta aca: ver `monte_carlos.py` y `funciones.py`.
+La logica del modelo y valores fijos por enunciado estan en `monte_carlos.py` y `funciones.py`.
 """
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -31,6 +31,7 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
         "Dia",
         "RND estrategia",
         "Estrategia",
+        "RND despertar base",
         "T. despertar base",
         "RND rechazo",
         "Hubo rechazo",
@@ -38,8 +39,11 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
         "RND pausa",
         "Hubo pausa",
         "T. pausa",
+        "RND vestirse",
         "T. vestirse",
+        "RND desayuno",
         "T. desayuno",
+        "RND higiene",
         "T. higiene",
         "RND extra",
         "Hubo extra",
@@ -86,6 +90,7 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
             f["dia"],
             f'{f["rnd_estrategia"]:.4f}',
             f["estrategia"],
+            f'{f["rnd_despertar_base"]:.4f}',
             f'{f["t_despertar_base"]:.2f}',
             "" if f["rnd_rechazo"] is None else f'{f["rnd_rechazo"]:.4f}',
             f["hubo_rechazo"],
@@ -93,8 +98,11 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
             f'{f["rnd_pausa"]:.4f}',
             f["hubo_pausa"],
             f'{f["t_pausa"]:.2f}',
+            f'{f["rnd_vestirse"]:.4f}',
             f'{f["t_vestirse"]:.2f}',
+            f'{f["rnd_desayuno"]:.4f}',
             f'{f["t_desayuno"]:.2f}',
+            f'{f["rnd_higiene"]:.4f}',
             f'{f["t_higiene"]:.2f}',
             f'{f["rnd_extra"]:.4f}',
             f["hubo_extra"],
@@ -282,7 +290,6 @@ class mainUi(object):
         MainWindow.setWindowTitle("TP3 - Montecarlo LEVANTARSE - Grupo 1 4K2")
         MainWindow.setMinimumSize(1000, 640)
 
-        self._resultados = None
         self._fila_anclada = None
 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -364,7 +371,7 @@ class mainUi(object):
         self.simular()
 
     def _crear_panel_parametros(self, parent_layout):
-        """Spinboxes y boton Simular: todos los parametros que lee `ParametrosSimulacion`."""
+        """Spinboxes y boton Simular: parametros configurables de `ParametrosSimulacion`."""
         box = QtWidgets.QGroupBox("Parametros de simulacion")
         form = QtWidgets.QGridLayout(box)
 
@@ -385,21 +392,8 @@ class mainUi(object):
         self.spn_seed.setRange(0, 999_999_999)
         self.spn_seed.setValue(42)
 
-        self.spn_prob_suave = self._nuevo_prob(0.30)
-        self.spn_prob_insistente = self._nuevo_prob(0.50)
-        self.spn_prob_luz = self._nuevo_prob(0.20)
-        self.spn_prob_pausa = self._nuevo_prob(0.70)
-        self.spn_prob_rechazo = self._nuevo_prob(0.35)
         self.spn_prob_extra = self._nuevo_prob(0.25)
 
-        self.spn_inc_rechazo = QtWidgets.QDoubleSpinBox()
-        self.spn_inc_rechazo.setRange(0.0, 5.0)
-        self.spn_inc_rechazo.setDecimals(4)
-        self.spn_inc_rechazo.setSingleStep(0.05)
-        self.spn_inc_rechazo.setValue(0.75)
-
-        self.spn_despertar_min = self._nuevo_tiempo(5.0)
-        self.spn_despertar_max = self._nuevo_tiempo(10.0)
         self.spn_pausa_min = self._nuevo_tiempo(5.0)
         self.spn_pausa_max = self._nuevo_tiempo(7.0)
         self.spn_act_min = self._nuevo_tiempo(5.0)
@@ -421,16 +415,8 @@ class mainUi(object):
             ("Fila inicial del vector (i)", self.spn_fila_desde),
             ("Umbral de tardanza (min)", self.spn_umbral),
             ("Semilla", self.spn_seed),
-            ("P(Estrategia suave)", self.spn_prob_suave),
-            ("P(Estrategia insistente)", self.spn_prob_insistente),
-            ("P(Estrategia luz)", self.spn_prob_luz),
-            ("P(Pausa intermedia)", self.spn_prob_pausa),
-            ("P(Reaccion lenta en 2/3)", self.spn_prob_rechazo),
-            ("Incremento por reaccion lenta", self.spn_inc_rechazo),
             ("P(Demora extra)", self.spn_prob_extra),
             ("Media demora extra exp.", self.spn_media_extra),
-            ("Despertar U(min)", self.spn_despertar_min),
-            ("Despertar U(max)", self.spn_despertar_max),
             ("Pausa U(min)", self.spn_pausa_min),
             ("Pausa U(max)", self.spn_pausa_max),
             ("Actividad U(min)", self.spn_act_min),
@@ -444,14 +430,15 @@ class mainUi(object):
         self.btn_simular = QtWidgets.QPushButton("Simular")
         self.lbl_info = QtWidgets.QLabel("")
         self.lbl_info.setStyleSheet("color: #334155; font-weight: 700;")
-        form.addWidget(self.btn_simular, 6, 0, 1, 1)
-        form.addWidget(self.lbl_info, 6, 1, 1, 5)
+        fila_boton = (len(controles) - 1) // 3 + 1
+        form.addWidget(self.btn_simular, fila_boton, 0, 1, 1)
+        form.addWidget(self.lbl_info, fila_boton, 1, 1, 5)
 
         parent_layout.addWidget(box)
 
     @staticmethod
     def _nuevo_prob(valor):
-        """Spinbox en [0,1] para probabilidades (estrategias, pausa, rechazo, demora extra)."""
+        """Spinbox en [0,1] para P(demora extra)."""
         spn = QtWidgets.QDoubleSpinBox()
         spn.setRange(0.0, 1.0)
         spn.setDecimals(4)
@@ -461,7 +448,7 @@ class mainUi(object):
 
     @staticmethod
     def _nuevo_tiempo(valor):
-        """Spinbox para minutos (limites de uniformes, media de la exponencial, umbral)."""
+        """Spinbox para minutos (pausa, actividades, media demora extra)."""
         spn = QtWidgets.QDoubleSpinBox()
         spn.setRange(0.0, 10_000.0)
         spn.setDecimals(2)
@@ -650,16 +637,8 @@ class mainUi(object):
             fila_desde=int(self.spn_fila_desde.value()),
             umbral_tarde=float(self.spn_umbral.value()),
             seed=int(self.spn_seed.value()),
-            prob_suave=float(self.spn_prob_suave.value()),
-            prob_insistente=float(self.spn_prob_insistente.value()),
-            prob_luz=float(self.spn_prob_luz.value()),
-            prob_pausa=float(self.spn_prob_pausa.value()),
             pausa_min=float(self.spn_pausa_min.value()),
             pausa_max=float(self.spn_pausa_max.value()),
-            prob_rechazo=float(self.spn_prob_rechazo.value()),
-            incremento_rechazo=float(self.spn_inc_rechazo.value()),
-            despertar_min=float(self.spn_despertar_min.value()),
-            despertar_max=float(self.spn_despertar_max.value()),
             actividad_min=float(self.spn_act_min.value()),
             actividad_max=float(self.spn_act_max.value()),
             prob_demora_extra=float(self.spn_prob_extra.value()),
@@ -680,10 +659,10 @@ class mainUi(object):
             return
 
         simulador = SimuladorLevantarse(params)
-        self._resultados = simulador.simular()
-        self._cargar_estrategias(self._resultados["estrategias"])
-        self._cargar_indicadores(self._resultados["indicadores"])
-        self.vector_model.set_filas(self._resultados["filas"])
+        resultados = simulador.simular()
+        self._cargar_estrategias(resultados["estrategias"])
+        self._cargar_indicadores(resultados["indicadores"])
+        self.vector_model.set_filas(resultados["filas"])
         if self._fila_anclada is not None:
             if self._fila_anclada < self.vector_model.rowCount():
                 self._establecer_fila_anclada(self._fila_anclada)

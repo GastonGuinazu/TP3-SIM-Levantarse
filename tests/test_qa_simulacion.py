@@ -15,6 +15,7 @@ Cobertura tipo revision profesional:
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from funciones import GeneradorAleatorio
 from monte_carlos import ParametrosSimulacion, SimuladorLevantarse, validar_parametros_entrada
@@ -27,16 +28,8 @@ def _p(**kwargs) -> ParametrosSimulacion:
         fila_desde=1,
         umbral_tarde=45.0,
         seed=42,
-        prob_suave=0.30,
-        prob_insistente=0.50,
-        prob_luz=0.20,
-        prob_pausa=0.70,
         pausa_min=5.0,
         pausa_max=7.0,
-        prob_rechazo=0.35,
-        incremento_rechazo=0.75,
-        despertar_min=5.0,
-        despertar_max=10.0,
         actividad_min=5.0,
         actividad_max=10.0,
         prob_demora_extra=0.25,
@@ -69,14 +62,7 @@ class TestValidacionParametros(unittest.TestCase):
     def test_fila_i_mayor_que_n(self):
         self.assert_invalid(_p(dias=10, fila_desde=11), "no puede ser mayor que N")
 
-    def test_probabilidades_estrategia_no_suman_1(self):
-        self.assert_invalid(
-            _p(prob_suave=0.3, prob_insistente=0.3, prob_luz=0.3),
-            "suma",
-        )
-
     def test_rangos_uniformes_invertidos(self):
-        self.assert_invalid(_p(despertar_min=10, despertar_max=5), "Despertar")
         self.assert_invalid(_p(pausa_min=8, pausa_max=5), "Pausa")
         self.assert_invalid(_p(actividad_min=10, actividad_max=5), "Actividad")
 
@@ -85,8 +71,6 @@ class TestValidacionParametros(unittest.TestCase):
         self.assert_invalid(_p(media_demora_extra=-1), "demora extra")
 
     def test_probabilidades_fuera_de_0_1(self):
-        self.assert_invalid(_p(prob_pausa=-0.01), "Pausa")
-        self.assert_invalid(_p(prob_rechazo=1.01), "Reaccion")
         self.assert_invalid(_p(prob_demora_extra=2.0), "Demora extra")
 
     def test_entrada_minima_valida(self):
@@ -104,14 +88,7 @@ class TestEscenarioDeterminista(unittest.TestCase):
             dias=50,
             fila_desde=1,
             seed=999,
-            prob_suave=1.0,
-            prob_insistente=0.0,
-            prob_luz=0.0,
-            prob_pausa=0.0,
-            prob_rechazo=0.35,
             prob_demora_extra=0.0,
-            despertar_min=10.0,
-            despertar_max=10.0,
             pausa_min=5.0,
             pausa_max=7.0,
             actividad_min=5.0,
@@ -119,7 +96,27 @@ class TestEscenarioDeterminista(unittest.TestCase):
             media_demora_extra=8.0,
             umbral_tarde=1000.0,
         )
-        out = SimuladorLevantarse(p).simular()
+        _iv = [0]
+
+        def _mock_intervalo(self, a, b):
+            """Por dia: 1ª llamada despertar base (10); siguentes 3 actividades (5 cada una)."""
+            _iv[0] += 1
+            if (_iv[0] - 1) % 4 == 0:
+                return (0.5, 10.0)
+            return (0.5, 5.0)
+
+        with patch.multiple(
+            "monte_carlos",
+            PROB_ESTRATEGIA_SUAVE=1.0,
+            PROB_ESTRATEGIA_INSISTENTE=0.0,
+            PROB_ESTRATEGIA_LUZ=0.0,
+            PROB_PAUSA_INTERMEDIA=0.0,
+        ), patch.object(
+            GeneradorAleatorio,
+            "generar_uniforme_intervalo",
+            _mock_intervalo,
+        ):
+            out = SimuladorLevantarse(p).simular()
         ind = out["indicadores"]
         esperado = 10.0 + 3 * 5.0
         self.assertAlmostEqual(ind["tiempo_promedio"], esperado, places=6)
@@ -134,18 +131,23 @@ class TestEscenarioDeterminista(unittest.TestCase):
         p = _p(
             dias=5,
             seed=1,
-            prob_suave=1.0,
-            prob_insistente=0.0,
-            prob_luz=0.0,
-            prob_pausa=0.0,
             prob_demora_extra=1.0,
-            despertar_min=0.0,
-            despertar_max=0.0,
             actividad_min=0.0,
             actividad_max=0.0,
             media_demora_extra=1.0,
         )
-        out = SimuladorLevantarse(p).simular()
+        with patch.multiple(
+            "monte_carlos",
+            PROB_ESTRATEGIA_SUAVE=1.0,
+            PROB_ESTRATEGIA_INSISTENTE=0.0,
+            PROB_ESTRATEGIA_LUZ=0.0,
+            PROB_PAUSA_INTERMEDIA=0.0,
+        ), patch.object(
+            GeneradorAleatorio,
+            "generar_uniforme_intervalo",
+            return_value=(0.0, 0.0),
+        ):
+            out = SimuladorLevantarse(p).simular()
         for fila in out["filas"]:
             self.assertEqual(fila["hubo_extra"], "Si")
             self.assertGreaterEqual(fila["t_extra"], 0.0)

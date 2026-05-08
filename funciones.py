@@ -10,6 +10,8 @@ Nota: versiones anteriores del proyecto incluian otros metodos (normales, listas
 se eliminaron porque este TP no los usa (evita ruido al defender el codigo).
 """
 
+from typing import Tuple
+
 import numpy as np
 
 
@@ -33,6 +35,17 @@ class GeneradorAleatorio:
         """
         rnd = np.random.rand()
         return round(rnd * (b - a) + a, 4)
+
+    def generar_uniforme_intervalo(self, a: float, b: float) -> Tuple[float, float]:
+        """
+        Igual que `generar_uniforme(a, b)` pero devuelve tambien el U(0,1) usado en la transformada.
+
+        Returns:
+            (rnd_01_redondeado, valor_en_intervalo) con la misma regla de redondeo que `generar_uniforme`.
+        """
+        rnd = np.random.rand()
+        valor = round(rnd * (b - a) + a, 4)
+        return round(rnd, 4), valor
 
     def generar_exponencial_negativa(self, media) -> float:
         """

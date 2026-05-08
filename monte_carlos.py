@@ -2,7 +2,8 @@
 Motor de simulacion Montecarlo — caso LEVANTARSE (TP3).
 
 Responsabilidades de este archivo (para ubicarlo en la defensa oral):
-  - `ParametrosSimulacion`: todos los valores que el usuario puede cargar desde la UI.
+  - `ParametrosSimulacion`: entradas configurables (N, i, umbral, semilla, rangos U, demora extra).
+  - Constantes de modulo: probabilidades fijas del enunciado (estrategias, pausa, reaccion lenta).
   - `SimuladorLevantarse`: un dia = una iteracion; se calculan tiempos, RND, flags y acumuladores.
   - Salida: diccionario con `filas` (vector de estado parcial), `indicadores` (preguntas 1–6)
     y `estrategias` (tabla de probabilidad acumulada para mostrar en pantalla).
@@ -22,30 +23,42 @@ from typing import Dict, List, Tuple
 
 from funciones import GeneradorAleatorio
 
+# --- Enunciado: no configurables desde UI (ver PDF del TP) ---
+PROB_ESTRATEGIA_SUAVE = 0.30
+PROB_ESTRATEGIA_INSISTENTE = 0.50
+PROB_ESTRATEGIA_LUZ = 0.20
+PROB_PAUSA_INTERMEDIA = 0.70
+PROB_REACCION_LENTA = 0.35
+INCREMENTO_REACCION_LENTA = 0.75
+
+# T. despertar base por estrategia (enunciado): uniforme en [min, max] minutos.
+DESPERTAR_SUAVE_MIN = 2.0
+DESPERTAR_SUAVE_MAX = 4.0
+DESPERTAR_INSISTENTE_MIN = 1.0
+DESPERTAR_INSISTENTE_MAX = 3.0
+DESPERTAR_LUZ_MIN = 1.0
+DESPERTAR_LUZ_MAX = 2.0
+
 
 @dataclass
 class ParametrosSimulacion:
     """
-    Entradas del modelo. Campos agrupados por tema del enunciado:
+    Entradas del modelo configurables desde la UI.
 
     Simulacion general:
       dias, fila_desde (i del vector), umbral_tarde (minutos; variable extra del grupo), seed.
 
-    Estrategia de despertar (30% / 50% / 20% por defecto):
-      prob_suave, prob_insistente, prob_luz  (deben sumar 1).
-
-    Pausa intermedia (70% por defecto; si ocurre, U entre pausa_min y pausa_max):
-      prob_pausa, pausa_min, pausa_max.
-
-    Reaccion lenta solo si la estrategia no es suave (35% por defecto; +75% al tiempo base):
-      prob_rechazo, incremento_rechazo.
+    Pausa intermedia (si ocurre, U entre pausa_min y pausa_max):
+      pausa_min, pausa_max. La probabilidad de pausa es fija (enunciado).
 
     Tiempos base:
-      despertar: U(despertar_min, despertar_max) minutos por defecto [5,10].
+      despertar base: U por estrategia (Suave 2-4, Insistente 1-3, Luz 1-2); ver constantes DESPERTAR_*.
       actividades (vestir / desayuno / higiene): U(actividad_min, actividad_max) por defecto [5,10].
 
     Demora tipo juguete perdido / imprevisto (25% por defecto; Exp(media) minutos, media 8):
       prob_demora_extra, media_demora_extra.
+
+    Estrategias de despertar, P(pausa), P(reaccion lenta) e incremento: ver constantes de modulo.
     """
 
     dias: int
@@ -53,19 +66,8 @@ class ParametrosSimulacion:
     umbral_tarde: float
     seed: int = 42
 
-    prob_suave: float = 0.30
-    prob_insistente: float = 0.50
-    prob_luz: float = 0.20
-
-    prob_pausa: float = 0.70
     pausa_min: float = 5.0
     pausa_max: float = 7.0
-
-    prob_rechazo: float = 0.35
-    incremento_rechazo: float = 0.75
-
-    despertar_min: float = 5.0
-    despertar_max: float = 10.0
 
     actividad_min: float = 5.0
     actividad_max: float = 10.0
@@ -87,23 +89,14 @@ def validar_parametros_entrada(p: ParametrosSimulacion) -> str:
         return "La fila i debe ser mayor a 0."
     if p.fila_desde > p.dias:
         return "La fila i no puede ser mayor que N."
-    if abs((p.prob_suave + p.prob_insistente + p.prob_luz) - 1.0) > 1e-6:
-        return "La suma de probabilidades de estrategia debe ser 1."
-    if p.despertar_min > p.despertar_max:
-        return "Despertar minimo no puede ser mayor al maximo."
     if p.pausa_min > p.pausa_max:
         return "Pausa minima no puede ser mayor a la maxima."
     if p.actividad_min > p.actividad_max:
         return "Actividad minima no puede ser mayor a la maxima."
     if p.media_demora_extra <= 0:
         return "La media de demora extra debe ser mayor a 0."
-    for nombre, prob in (
-        ("P(Pausa intermedia)", p.prob_pausa),
-        ("P(Reaccion lenta en 2/3)", p.prob_rechazo),
-        ("P(Demora extra)", p.prob_demora_extra),
-    ):
-        if not 0.0 <= prob <= 1.0:
-            return f"{nombre} debe estar entre 0 y 1."
+    if not 0.0 <= p.prob_demora_extra <= 1.0:
+        return "P(Demora extra) debe estar entre 0 y 1."
     return ""
 
 
@@ -120,11 +113,10 @@ class SimuladorLevantarse:
 
     def _crear_distribucion_estrategias(self) -> List[dict]:
         """Tabla P acumulada + rangos de RND para muestrear la estrategia del dia (metodo Montecarlo)."""
-        p = self.parametros
         estrategias = [
-            ("Suave", p.prob_suave),
-            ("Insistente", p.prob_insistente),
-            ("Luz encendida", p.prob_luz),
+            ("Suave", PROB_ESTRATEGIA_SUAVE),
+            ("Insistente", PROB_ESTRATEGIA_INSISTENTE),
+            ("Luz encendida", PROB_ESTRATEGIA_LUZ),
         ]
 
         acumulada = 0.0
@@ -160,6 +152,14 @@ class SimuladorLevantarse:
     def _exp(self, media: float) -> float:
         return self._generador.generar_exponencial_negativa(media)
 
+    @staticmethod
+    def _margenes_despertar_base(estrategia: str) -> Tuple[float, float]:
+        if estrategia == "Suave":
+            return DESPERTAR_SUAVE_MIN, DESPERTAR_SUAVE_MAX
+        if estrategia == "Insistente":
+            return DESPERTAR_INSISTENTE_MIN, DESPERTAR_INSISTENTE_MAX
+        return DESPERTAR_LUZ_MIN, DESPERTAR_LUZ_MAX
+
     def simular(self) -> Dict[str, object]:
         """
         Bucle principal: por cada dia se calcula una fila del vector de estado conceptual.
@@ -167,7 +167,7 @@ class SimuladorLevantarse:
         Orden logico del dia (coincide con columnas de la grilla):
           1) Estrategia y tiempo de despertar (con posible incremento por reaccion lenta).
           2) Pausa intermedia opcional.
-          3) Tres actividades en U.
+          3) Tres actividades en U: se guarda el RND (0,1) y el tiempo en cada una.
           4) Demora extra opcional (juguete / imprevisto) con exponencial.
           5) Tiempo total del dia y actualizacion de todos los acumuladores.
         """
@@ -191,28 +191,35 @@ class SimuladorLevantarse:
             # --- 1) Despertar ---
             estrategia, rnd_estrategia = self._muestrear_estrategia()
 
-            t_despertar_base = self._u(p.despertar_min, p.despertar_max)
+            lo_d, hi_d = self._margenes_despertar_base(estrategia)
+            rnd_despertar_base, t_despertar_base = self._generador.generar_uniforme_intervalo(lo_d, hi_d)
             rnd_rechazo = None
             hubo_rechazo = False
 
             if estrategia != "Suave":
                 rnd_rechazo = self._u(0, 1)
-                hubo_rechazo = rnd_rechazo <= p.prob_rechazo
+                hubo_rechazo = rnd_rechazo <= PROB_REACCION_LENTA
             if hubo_rechazo:
-                t_despertar = t_despertar_base * (1 + p.incremento_rechazo)
+                t_despertar = t_despertar_base * (1 + INCREMENTO_REACCION_LENTA)
                 cont_rechazo += 1
             else:
                 t_despertar = t_despertar_base
 
             # --- 2) Pausa intermedia ---
             rnd_pausa = self._u(0, 1)
-            hubo_pausa = rnd_pausa <= p.prob_pausa
+            hubo_pausa = rnd_pausa <= PROB_PAUSA_INTERMEDIA
             t_pausa = self._u(p.pausa_min, p.pausa_max) if hubo_pausa else 0.0
 
             # --- 3) Rutina: vestirse, desayunar, higiene ---
-            t_vestirse = self._u(p.actividad_min, p.actividad_max)
-            t_desayuno = self._u(p.actividad_min, p.actividad_max)
-            t_higiene = self._u(p.actividad_min, p.actividad_max)
+            rnd_vestirse, t_vestirse = self._generador.generar_uniforme_intervalo(
+                p.actividad_min, p.actividad_max
+            )
+            rnd_desayuno, t_desayuno = self._generador.generar_uniforme_intervalo(
+                p.actividad_min, p.actividad_max
+            )
+            rnd_higiene, t_higiene = self._generador.generar_uniforme_intervalo(
+                p.actividad_min, p.actividad_max
+            )
 
             # --- 4) Demora extra = imprevisto / juguete perdido (PDF: 25%, Exp(media=8)) ---
             rnd_extra = self._u(0, 1)
@@ -246,6 +253,7 @@ class SimuladorLevantarse:
                 "dia": dia,
                 "rnd_estrategia": rnd_estrategia,
                 "estrategia": estrategia,
+                "rnd_despertar_base": rnd_despertar_base,
                 "t_despertar_base": t_despertar_base,
                 "rnd_rechazo": rnd_rechazo,
                 "hubo_rechazo": "Si" if hubo_rechazo else "No",
@@ -253,8 +261,11 @@ class SimuladorLevantarse:
                 "rnd_pausa": rnd_pausa,
                 "hubo_pausa": "Si" if hubo_pausa else "No",
                 "t_pausa": t_pausa,
+                "rnd_vestirse": rnd_vestirse,
                 "t_vestirse": t_vestirse,
+                "rnd_desayuno": rnd_desayuno,
                 "t_desayuno": t_desayuno,
+                "rnd_higiene": rnd_higiene,
                 "t_higiene": t_higiene,
                 "rnd_extra": rnd_extra,
                 "hubo_extra": "Si" if hubo_extra else "No",
