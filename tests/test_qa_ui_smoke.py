@@ -34,10 +34,10 @@ class TestHumoInterfaz(unittest.TestCase):
         try:
             ui = mainUi()
             ui.setupUi(w)
+            self.assertGreater(ui.tbl_vector.model().rowCount(), 0)
+            self.assertEqual(ui.tbl_estrategias.rowCount(), 3)
         finally:
             w.close()
-        self.assertGreater(ui.tbl_vector.model().rowCount(), 0)
-        self.assertEqual(ui.tbl_estrategias.rowCount(), 3)
 
 
 if __name__ == "__main__":

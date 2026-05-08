@@ -514,11 +514,10 @@ class mainUi(object):
         layout = QtWidgets.QVBoxLayout(box)
 
         fila_ref = QtWidgets.QHBoxLayout()
-        self.lbl_fila_anclada = QtWidgets.QLabel(
-            "Para anclar una fila, hace click en la columna Dia; en las demas columnas solo seleccionas sin anclar."
-        )
+        self.lbl_fila_anclada = QtWidgets.QLabel()
         self.lbl_fila_anclada.setWordWrap(True)
         self.lbl_fila_anclada.setStyleSheet("color: #475569; font-size: 9pt;")
+        self.lbl_fila_anclada.setVisible(False)
         fila_ref.addWidget(self.lbl_fila_anclada, 1)
         self.btn_quitar_ancla = QtWidgets.QPushButton("Quitar ancla")
         self.btn_quitar_ancla.setVisible(False)
@@ -562,17 +561,15 @@ class mainUi(object):
         self._fila_anclada = row
         self.tbl_vector.set_fila_anclada(row)
         self.btn_quitar_ancla.setVisible(True)
-        self.lbl_fila_anclada.setText(
-            f"Fila anclada (fila {row + 1}). El titulo de columnas sigue fijo; la fila queda debajo al hacer scroll vertical."
-        )
+        self.lbl_fila_anclada.setText(f"Fila anclada (fila {row + 1}).")
+        self.lbl_fila_anclada.setVisible(True)
 
     def _limpiar_fila_anclada(self):
         self._fila_anclada = None
         self.tbl_vector.set_fila_anclada(None)
         self.btn_quitar_ancla.setVisible(False)
-        self.lbl_fila_anclada.setText(
-            "Para anclar una fila, hace click en la columna Dia; en las demas columnas solo seleccionas sin anclar."
-        )
+        self.lbl_fila_anclada.clear()
+        self.lbl_fila_anclada.setVisible(False)
 
     def _configurar_copia_excel(self):
         """Ctrl+C copia la seleccion de la tabla con foco (texto separado por tabs, listo para Excel)."""

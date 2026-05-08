@@ -9,6 +9,8 @@ Responsabilidades de este archivo (para ubicarlo en la defensa oral):
     y `estrategias` (tabla de probabilidad acumulada para mostrar en pantalla).
 
 Memoria / enunciado:
+  - Trabajo por dia: dos dicts reutilizados (dia anterior / dia actual); al armar la lista visible
+    se hace copia (`dict(...)`) para no mezclar referencias con el buffer rotativo.
   - Se simulan N dias completos, pero solo se guardan en lista las filas a mostrar:
     200 filas desde la fila i y, si no esta incluida, la fila N (total maximo: 201).
   - Los promedios y conteos del final usan los N dias completos aunque la grilla muestre un subconjunto.
@@ -158,6 +160,9 @@ class SimuladorLevantarse:
         """
         Bucle principal: por cada dia se calcula una fila del vector de estado conceptual.
 
+        Memoria de trabajo: dos dicts (`fila_dia_anterior`, `fila_dia_actual`) que se intercambian
+        cada iteracion; `filas_mostradas` solo recibe copias del tramo visible y la fila N.
+
         Orden logico del dia (coincide con columnas de la grilla):
           1) Estrategia y tiempo de despertar (con posible incremento por reaccion lenta).
           2) Pausa intermedia opcional.
@@ -170,6 +175,8 @@ class SimuladorLevantarse:
         hasta = min(p.dias, desde + self.FILAS_DETALLE - 1)
 
         filas_mostradas: List[dict] = []
+        fila_dia_anterior: dict = {}
+        fila_dia_actual: dict = {}
         # --- Acumuladores globales (se usan en indicadores finales y en columnas acumuladas) ---
         tiempo_total_acum = 0.0
         cont_pausa_y_extra = 0
@@ -182,6 +189,8 @@ class SimuladorLevantarse:
         tiempo_min = float("inf")
 
         for dia in range(1, p.dias + 1):
+            fila_dia_anterior, fila_dia_actual = fila_dia_actual, fila_dia_anterior
+            fila_dia_actual.clear()
             # --- 1) Despertar ---
             estrategia, rnd_estrategia = self._muestrear_estrategia()
 
@@ -218,17 +227,15 @@ class SimuladorLevantarse:
             # --- 4) Demora extra = imprevisto / juguete perdido (PDF: 25%, Exp(media=8)) ---
             rnd_extra = self._u(0, 1)
             hubo_extra = rnd_extra <= p.prob_demora_extra
-            rnd_extra_exp = None
             if hubo_extra:
                 rnd_extra_exp, t_extra = self._generador.generar_exponencial_negativa_intervalo(
                     p.media_demora_extra
                 )
-            else:
-                t_extra = 0.0
-
-            if hubo_extra:
                 cont_demora_extra += 1
                 tiempo_demora_extra_acum += t_extra
+            else:
+                rnd_extra_exp = None
+                t_extra = 0.0
 
             # --- 5) Totales del dia y respuestas a preguntas 2 y 3 del enunciado ---
             tiempo_total = t_despertar + t_pausa + t_vestirse + t_desayuno + t_higiene + t_extra
@@ -248,49 +255,48 @@ class SimuladorLevantarse:
                 tiempo_demora_extra_acum / cont_demora_extra if cont_demora_extra else 0.0
             )
 
-            # Diccionario de una fila: todo lo que la catedra suele pedir ver en el vector de estado.
-            fila = {
-                "dia": dia,
-                "rnd_estrategia": rnd_estrategia,
-                "estrategia": estrategia,
-                "rnd_despertar_base": rnd_despertar_base,
-                "t_despertar_base": t_despertar_base,
-                "rnd_rechazo": rnd_rechazo,
-                "hubo_rechazo": "Si" if hubo_rechazo else "No",
-                "t_despertar": t_despertar,
-                "rnd_pausa": rnd_pausa,
-                "hubo_pausa": "Si" if hubo_pausa else "No",
-                "t_pausa": t_pausa,
-                "rnd_vestirse": rnd_vestirse,
-                "t_vestirse": t_vestirse,
-                "rnd_desayuno": rnd_desayuno,
-                "t_desayuno": t_desayuno,
-                "rnd_higiene": rnd_higiene,
-                "t_higiene": t_higiene,
-                "rnd_extra": rnd_extra,
-                "hubo_extra": "Si" if hubo_extra else "No",
-                "rnd_extra_exp": rnd_extra_exp,
-                "t_extra": t_extra,
-                "tiempo_total": tiempo_total,
-                "tiempo_total_acum": tiempo_total_acum,
-                "tiempo_promedio_acum": tiempo_total_acum / dia,
-                "tiempo_max_acum": tiempo_max,
-                "tiempo_min_acum": tiempo_min,
-                "porc_pausa_y_extra_acum": (cont_pausa_y_extra / dia) * 100,
-                "cant_sin_pausa_y_sin_extra_acum": cont_sin_pausa_y_sin_extra,
-                "porc_rechazo_acum": (cont_rechazo / dia) * 100,
-                "porc_supera_umbral_acum": (cont_supera_umbral / dia) * 100,
-                "cant_demora_extra_acum": cont_demora_extra,
-                "tiempo_demora_extra_acum": tiempo_demora_extra_acum,
-                "promedio_demora_extra_acum": promedio_extra_acum,
-            }
+            fila_dia_actual.update(
+                dia=dia,
+                rnd_estrategia=rnd_estrategia,
+                estrategia=estrategia,
+                rnd_despertar_base=rnd_despertar_base,
+                t_despertar_base=t_despertar_base,
+                rnd_rechazo=rnd_rechazo,
+                hubo_rechazo="Si" if hubo_rechazo else "No",
+                t_despertar=t_despertar,
+                rnd_pausa=rnd_pausa,
+                hubo_pausa="Si" if hubo_pausa else "No",
+                t_pausa=t_pausa,
+                rnd_vestirse=rnd_vestirse,
+                t_vestirse=t_vestirse,
+                rnd_desayuno=rnd_desayuno,
+                t_desayuno=t_desayuno,
+                rnd_higiene=rnd_higiene,
+                t_higiene=t_higiene,
+                rnd_extra=rnd_extra,
+                hubo_extra="Si" if hubo_extra else "No",
+                rnd_extra_exp=rnd_extra_exp,
+                t_extra=t_extra,
+                tiempo_total=tiempo_total,
+                tiempo_total_acum=tiempo_total_acum,
+                tiempo_promedio_acum=tiempo_total_acum / dia,
+                tiempo_max_acum=tiempo_max,
+                tiempo_min_acum=tiempo_min,
+                porc_pausa_y_extra_acum=(cont_pausa_y_extra / dia) * 100,
+                cant_sin_pausa_y_sin_extra_acum=cont_sin_pausa_y_sin_extra,
+                porc_rechazo_acum=(cont_rechazo / dia) * 100,
+                porc_supera_umbral_acum=(cont_supera_umbral / dia) * 100,
+                cant_demora_extra_acum=cont_demora_extra,
+                tiempo_demora_extra_acum=tiempo_demora_extra_acum,
+                promedio_demora_extra_acum=promedio_extra_acum,
+            )
 
             # Guardar 200 filas desde i y, si hace falta, la ultima fila N (enunciado).
             if desde <= dia <= hasta:
-                filas_mostradas.append(fila)
+                filas_mostradas.append(dict(fila_dia_actual))
             elif dia == p.dias:
                 if not filas_mostradas or filas_mostradas[-1]["dia"] != p.dias:
-                    filas_mostradas.append(fila)
+                    filas_mostradas.append(dict(fila_dia_actual))
 
         # Indicadores pedidos (1–5) + tres variables extra del grupo (6.a–6.c).
         indicadores = {
