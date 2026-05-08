@@ -33,8 +33,8 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
         "Estrategia",
         "RND despertar base",
         "T. despertar base",
-        "RND rehuso",
-        "Hubo rehuso",
+        "RND rechazo",
+        "Hubo rechazo",
         "T. despertar final",
         "RND pausa",
         "Hubo pausa",
@@ -676,7 +676,7 @@ class mainUi(object):
         )
 
     def _cargar_estrategias(self, estrategias):
-        """Llena la tabla de distribucion de estrategias (salida de `_crear_distribucion_estrategias`)."""
+        """Llena la tabla de distribucion de estrategias (lista `estrategias` devuelta por `simular`)."""
         self.tbl_estrategias.setUpdatesEnabled(False)
         self.tbl_estrategias.setRowCount(len(estrategias))
         for row, d in enumerate(estrategias):

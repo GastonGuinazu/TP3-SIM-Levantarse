@@ -47,22 +47,15 @@ class GeneradorAleatorio:
         valor = round(rnd * (b - a) + a, 4)
         return round(rnd, 4), valor
 
-    def generar_exponencial_negativa(self, media) -> float:
+    def generar_exponencial_negativa_intervalo(self, media: float) -> Tuple[float, float]:
         """
         Tiempo ~ Exp(media) por transformada inversa: X = -media * ln(1 - U), U ~ U(0,1).
 
         `np.random.rand()` devuelve valores en [0, 1), asi que (1 - U) > 0 y el logaritmo
-        esta definido. Media = valor esperado del tiempo de demora (en minutos en este TP).
-        """
-        _, num = self.generar_exponencial_negativa_intervalo(media)
-        return num
-
-    def generar_exponencial_negativa_intervalo(self, media: float) -> Tuple[float, float]:
-        """
-        Igual que `generar_exponencial_negativa` pero devuelve el U(0,1) de la transformada inversa.
+        esta definido.
 
         Returns:
-            (rnd_01_redondeado, tiempo) con la misma regla de redondeo que `generar_exponencial_negativa`.
+            (rnd_01_redondeado, tiempo_redondeado_a_4_decimales).
         """
         rnd = np.random.rand()
         lam = 1 / media

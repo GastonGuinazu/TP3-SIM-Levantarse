@@ -135,9 +135,6 @@ class SimuladorLevantarse:
             )
         return distribucion
 
-    def get_distribucion_estrategias(self) -> List[dict]:
-        return self._estrategias
-
     def _muestrear_estrategia(self) -> Tuple[str, float]:
         """Un RND U(0,1) y la primera fila cuya acumulada lo cubre."""
         rnd = self._generador.generar_uniforme(0, 1)

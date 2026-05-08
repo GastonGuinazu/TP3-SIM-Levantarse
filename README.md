@@ -23,16 +23,25 @@ py -3.11 -m unittest discover -s tests -v
 
 **Prueba visual manual (no automatizable del todo):** abrir la app, cambiar N/i/semilla, comprobar que el mensaje bajo “Simular” coincide con el tramo mostrado; hacer scroll en el vector de estado y verificar encabezados fijos, seleccion y `Ctrl+C` en Excel.
 
-## Parametros configurables
+## Parametros configurables (desde la UI)
 
 - `N`: cantidad de dias a simular.
-- `i`: fila inicial del vector de estado a visualizar.
-- `umbral de tardanza`: minutos para medir `% dias que superan umbral`.
-- `seed`: semilla para reproducibilidad.
-- Probabilidades de estrategia (`suave`, `insistente`, `luz`) y eventos (`pausa`, `reaccion lenta`, `demora extra`).
-- Valores de distribuciones:
-  - Uniformes (`despertar`, `pausa`, `actividades`).
-  - Exponencial (`media de demora extra`).
+- `i`: fila inicial del vector de estado a visualizar (`i..i+199` mas fila `N` si falta).
+- Umbral de tardanza (minutos): para el indicador `% dias que superan umbral`.
+- Semilla (`seed`): reproducibilidad de todos los RND del modelo.
+
+**Demora extra / imprevisto:**
+
+- `P(Demora extra)` y `Media demora extra exp.` (exponencial en minutos cuando el evento ocurre).
+
+**Distribuciones con limites editables:**
+
+- `Pausa U(min)`, `Pausa U(max)`: duracion si hay pausa intermedia (la probabilidad de pausa esta fija en codigo por enunciado).
+- `Actividad U(min)`, `Actividad U(max)`: vestirse, desayuno e higiene cada uno con uniforme independiente.
+
+**Valores fijos por enunciado en `monte_carlo.py`:** probabilidades de estrategia de despertar (`30% / 50% / 20%`), probabilidad de pausa intermedia, probabilidad de reaccion lenta cuando la estrategia no es suave y el incremento al tiempo base, y los rangos de tiempo base de despertar por estrategia (`Suave` 2-4 min, `Insistente` 1-3, `Luz encendida` 1-2).
+
+Ver columnas `RND ...` en el vector de estado para cada sorteo visible en pantalla (incluido el uniforme interno de la exponencial cuando `Hubo extra` es Si).
 
 ## Demora extra y texto del enunciado (para la defensa)
 
@@ -41,7 +50,9 @@ En el PDF, el apartado de **25 de cada 100 dias** describe un imprevisto (buscar
 - **`P(Demora extra)`** = probabilidad de que ese dia exista ese imprevisto (por defecto **0,25**, como “25 de 100 dias”).
 - **`Media demora extra exp.`** = parametro **media** (valor esperado en minutos) de la **exponencial** que muestrea los minutos sumados al dia cuando el evento ocurre (por defecto **8**).
 
-En la interfaz y en las columnas del vector de estado lo veras como **“extra”** / **“demora extra”**: es la traduccion directa de ese parrafo del enunciado al modelo de simulacion. Las preguntas 2 y 3 del TP usan **pausa intermedia** y este evento **extra** (en la tabla de indicadores aparece como pausa y **juguete perdido**).
+Cuando `Hubo extra` es Si, la columna **RND exp extra** del vector es el uniforme \(U(0,1)\) que entra en la formula \(-\text{media}\cdot\ln(1-U)\). La columna **RND extra** es el uniforme distinto usado solo para decidir si ese dia ocurre la demora extra (comparado con `P(Demora extra)`).
+
+En la interfaz y en el vector de estado aparece como **«extra»** / **«demora extra»**: mismo sentido que el parrafo del PDF. Las preguntas 2 y 3 del TP relacionan **pausa intermedia** con este evento (**juguete perdido** en la tabla de indicadores).
 
 ## Resultados que informa
 
@@ -57,7 +68,7 @@ En la interfaz y en las columnas del vector de estado lo veras como **“extra�
 
 ## Vector de estado y rendimiento
 
-- Se visualiza el tramo solicitado `i..i+200` y siempre la fila final `N`.
+- Se visualiza el tramo solicitado dias `i` a `i+199` (200 filas) y, si corresponde, siempre la fila final `N`.
 - La simulacion trabaja por acumuladores y no almacena las `N` filas completas; en el vector de estado figuran **todas** las columnas de acumuladores del modelo.
 - Grillas sin paginacion, con scroll horizontal/vertical y encabezados fijos.
 - Seleccion persistente y copia a Excel con `Ctrl + C`.
