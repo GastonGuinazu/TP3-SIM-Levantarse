@@ -149,9 +149,6 @@ class SimuladorLevantarse:
     def _u(self, minimo: float, maximo: float) -> float:
         return self._generador.generar_uniforme(minimo, maximo)
 
-    def _exp(self, media: float) -> float:
-        return self._generador.generar_exponencial_negativa(media)
-
     @staticmethod
     def _margenes_despertar_base(estrategia: str) -> Tuple[float, float]:
         if estrategia == "Suave":
@@ -224,7 +221,13 @@ class SimuladorLevantarse:
             # --- 4) Demora extra = imprevisto / juguete perdido (PDF: 25%, Exp(media=8)) ---
             rnd_extra = self._u(0, 1)
             hubo_extra = rnd_extra <= p.prob_demora_extra
-            t_extra = self._exp(p.media_demora_extra) if hubo_extra else 0.0
+            rnd_extra_exp = None
+            if hubo_extra:
+                rnd_extra_exp, t_extra = self._generador.generar_exponencial_negativa_intervalo(
+                    p.media_demora_extra
+                )
+            else:
+                t_extra = 0.0
 
             if hubo_extra:
                 cont_demora_extra += 1
@@ -269,6 +272,7 @@ class SimuladorLevantarse:
                 "t_higiene": t_higiene,
                 "rnd_extra": rnd_extra,
                 "hubo_extra": "Si" if hubo_extra else "No",
+                "rnd_extra_exp": rnd_extra_exp,
                 "t_extra": t_extra,
                 "tiempo_total": tiempo_total,
                 "tiempo_total_acum": tiempo_total_acum,

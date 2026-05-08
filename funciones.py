@@ -1,7 +1,7 @@
 """
 Generacion de aleatoriedad para la simulacion Montecarlo.
 
-Ubicacion en el TP: lo usa solo `monte_carlos.py` (clase `SimuladorLevantarse`).
+Ubicacion en el TP: lo usa solo `monte_carlo.py` (clase `SimuladorLevantarse`).
 Aqui centralizamos:
   - RND uniforme continuo en [a, b]  -> tiempos con distribucion uniforme.
   - Muestreo exponencial negativo     -> demora extra del enunciado (media configurable).
@@ -54,7 +54,17 @@ class GeneradorAleatorio:
         `np.random.rand()` devuelve valores en [0, 1), asi que (1 - U) > 0 y el logaritmo
         esta definido. Media = valor esperado del tiempo de demora (en minutos en este TP).
         """
+        _, num = self.generar_exponencial_negativa_intervalo(media)
+        return num
+
+    def generar_exponencial_negativa_intervalo(self, media: float) -> Tuple[float, float]:
+        """
+        Igual que `generar_exponencial_negativa` pero devuelve el U(0,1) de la transformada inversa.
+
+        Returns:
+            (rnd_01_redondeado, tiempo) con la misma regla de redondeo que `generar_exponencial_negativa`.
+        """
         rnd = np.random.rand()
         lam = 1 / media
         num = -(1.0 / lam) * np.log(1 - rnd)
-        return round(num, 4)
+        return round(rnd, 4), round(num, 4)

@@ -66,6 +66,6 @@ En la interfaz y en las columnas del vector de estado lo veras como **“extra�
 
 - `main.py` — arranque de la app.
 - `montecarloui.py` — interfaz PyQt5.
-- `monte_carlos.py` — motor Montecarlo (LEVANTARSE).
+- `monte_carlo.py` — motor Montecarlo (LEVANTARSE).
 - `funciones.py` — generador aleatorio (uniforme y exponencial).
 - `requirements.txt` — dependencias.

@@ -7,12 +7,12 @@ Mapa rapido para la defensa con la profesora:
   - `mainUi`: arma la ventana (parametros, tabla de estrategias, indicadores, vector de estado),
     valida entradas, ejecuta `SimuladorLevantarse` y refresca las tablas.
 
-La logica del modelo y valores fijos por enunciado estan en `monte_carlos.py` y `funciones.py`.
+La logica del modelo y valores fijos por enunciado estan en `monte_carlo.py` y `funciones.py`.
 """
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from monte_carlos import ParametrosSimulacion, SimuladorLevantarse, validar_parametros_entrada
+from monte_carlo import ParametrosSimulacion, SimuladorLevantarse, validar_parametros_entrada
 
 
 class VectorEstadoModel(QtCore.QAbstractTableModel):
@@ -33,8 +33,8 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
         "Estrategia",
         "RND despertar base",
         "T. despertar base",
-        "RND rechazo",
-        "Hubo rechazo",
+        "RND rehuso",
+        "Hubo rehuso",
         "T. despertar final",
         "RND pausa",
         "Hubo pausa",
@@ -47,6 +47,7 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
         "T. higiene",
         "RND extra",
         "Hubo extra",
+        "RND exp extra",
         "T. extra",
         "Tiempo total",
         "Tiempo total acum.",
@@ -106,6 +107,7 @@ class VectorEstadoModel(QtCore.QAbstractTableModel):
             f'{f["t_higiene"]:.2f}',
             f'{f["rnd_extra"]:.4f}',
             f["hubo_extra"],
+            "" if f["rnd_extra_exp"] is None else f'{f["rnd_extra_exp"]:.4f}',
             f'{f["t_extra"]:.2f}',
             f'{f["tiempo_total"]:.2f}',
             f'{f["tiempo_total_acum"]:.2f}',

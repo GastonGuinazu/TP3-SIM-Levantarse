@@ -18,7 +18,7 @@ import unittest
 from unittest.mock import patch
 
 from funciones import GeneradorAleatorio
-from monte_carlos import ParametrosSimulacion, SimuladorLevantarse, validar_parametros_entrada
+from monte_carlo import ParametrosSimulacion, SimuladorLevantarse, validar_parametros_entrada
 
 
 def _p(**kwargs) -> ParametrosSimulacion:
@@ -40,7 +40,7 @@ def _p(**kwargs) -> ParametrosSimulacion:
 
 
 class TestValidacionParametros(unittest.TestCase):
-    """Misma logica que la UI: `validar_parametros_entrada` en `monte_carlos.py`."""
+    """Misma logica que la UI: `validar_parametros_entrada` en `monte_carlo.py`."""
 
     def assert_invalid(self, p: ParametrosSimulacion, substring: str = ""):
         err = validar_parametros_entrada(p)
@@ -106,7 +106,7 @@ class TestEscenarioDeterminista(unittest.TestCase):
             return (0.5, 5.0)
 
         with patch.multiple(
-            "monte_carlos",
+            "monte_carlo",
             PROB_ESTRATEGIA_SUAVE=1.0,
             PROB_ESTRATEGIA_INSISTENTE=0.0,
             PROB_ESTRATEGIA_LUZ=0.0,
@@ -137,7 +137,7 @@ class TestEscenarioDeterminista(unittest.TestCase):
             media_demora_extra=1.0,
         )
         with patch.multiple(
-            "monte_carlos",
+            "monte_carlo",
             PROB_ESTRATEGIA_SUAVE=1.0,
             PROB_ESTRATEGIA_INSISTENTE=0.0,
             PROB_ESTRATEGIA_LUZ=0.0,
